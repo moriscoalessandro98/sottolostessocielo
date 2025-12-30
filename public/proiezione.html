@@ -63,6 +63,7 @@ function spawnComet() {
 // ---------- SOGNI ---------- //
 let dreams = [];
 let activeDreams = [];
+let dreamIndex = 0;
 
 async function fetchDreams(){
   try{
@@ -70,6 +71,7 @@ async function fetchDreams(){
     if(res.ok){
       const data = await res.json();
       dreams = shuffle(data.map(d=>d.dream));
+      dreamIndex = 0;
     }
   } catch{}
 }
@@ -89,15 +91,21 @@ class Dream {
     this.x = x;
     this.y = y;
     this.opacity = 0;
-    this.visible = false;
+    this.visible = true;
+    this.timer = 0;
   }
-  fadeIn(){
-    this.opacity += 0.01;
-    if(this.opacity>0.9) this.opacity=0.9;
-  }
-  fadeOut(){
-    this.opacity -= 0.01;
-    if(this.opacity<0) this.opacity=0;
+  update(dt){
+    this.timer += dt;
+    if(this.timer < 60){ // fade-in 1 secondo
+      this.opacity += 0.015;
+      if(this.opacity>0.9) this.opacity=0.9;
+    } else if(this.timer > 600){ // fade-out dopo 10s
+      this.opacity -= 0.01;
+      if(this.opacity<0){
+        this.opacity=0;
+        this.visible=false;
+      }
+    }
   }
   draw(){
     if(this.opacity>0){
@@ -112,45 +120,34 @@ class Dream {
 }
 
 // ---------- LOGICA SOGNI ---------- //
-let dreamTimer = 0;
-let sequenceIndex = 0;
+function getNonOverlappingPosition(){
+  let x, y, tries = 0;
+  do{
+    x = Math.random()*w*0.8 + w*0.1;
+    y = Math.random()*h*0.6 + h*0.2;
+    let tooClose = activeDreams.some(d=>{
+      return Math.hypot(d.x - x, d.y - y) < 120; // distanza minima
+    });
+    if(!tooClose) break;
+    tries++;
+  }while(tries<10);
+  return {x,y};
+}
+
+let dreamSpawnTimer = 0;
 function manageDreams(dt){
-  dreamTimer += dt;
-
-  // Se non ci sono sogni, non fare nulla
-  if(dreams.length===0) return;
-
-  // Gestione sequenziale
-  if(dreamTimer>180){ // 180 frame ~3s
-    const x1 = Math.random()*w*0.7 + w*0.15;
-    const y1 = Math.random()*h*0.5 + h*0.25;
-    const d = new Dream(dreams[sequenceIndex % dreams.length], x1, y1);
-    activeDreams.push(d);
-    sequenceIndex++;
-
-    // seconda frase della coppia 3s dopo
-    setTimeout(()=>{
-      const x2 = Math.random()*w*0.7 + w*0.15;
-      const y2 = Math.random()*h*0.5 + h*0.25;
-      const d2 = new Dream(dreams[sequenceIndex % dreams.length], x2, y2);
-      activeDreams.push(d2);
-      sequenceIndex++;
-    },3000);
-
-    dreamTimer = 0;
+  dreamSpawnTimer += dt;
+  if(dreamSpawnTimer > 300){ // ogni 5 secondi circa
+    if(dreams.length>0){
+      const {x,y} = getNonOverlappingPosition();
+      activeDreams.push(new Dream(dreams[dreamIndex % dreams.length], x, y));
+      dreamIndex++;
+    }
+    dreamSpawnTimer = 0;
   }
 
-  // fade in/out
-  activeDreams.forEach((d,i)=>{
-    if(i<activeDreams.length-2){ // lascia visibili solo ultime due
-      d.fadeOut();
-    } else {
-      d.fadeIn();
-    }
-  });
-
-  // rimuovi quelli invisibili
-  activeDreams = activeDreams.filter(d=>d.opacity>0);
+  activeDreams.forEach(d=>d.update(dt));
+  activeDreams = activeDreams.filter(d=>d.visible);
 }
 
 // ---------- ANIMAZIONE ---------- //
@@ -160,7 +157,7 @@ function animate(time=0){
   lastTime=time;
 
   // cielo e stelle
-  ctx.fillStyle = "rgba(0,0,0,0.05)"; // lascia leggero trail
+  ctx.fillStyle = "rgba(0,0,0,0.05)"; // trail
   ctx.fillRect(0,0,w,h);
   stars.forEach(s=>{
     s.angle += s.speed*dt;
@@ -198,7 +195,6 @@ function animate(time=0){
 animate();
 fetchDreams();
 setInterval(fetchDreams, 8000);
-
 </script>
 </body>
 </html>
