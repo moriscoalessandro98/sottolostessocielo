@@ -218,11 +218,16 @@ async function send() {
     return;
   }
 
+  if (dream.length > 120) {
+    msg.innerText = "Il sogno è troppo lungo, massimo 120 caratteri.";
+    return;
+  }
+
   try {
     const res = await fetch("/api/dream", {
       method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ dream }) // rimuovi connectionId
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dream }) // invio anonimo
     });
 
     msg.innerText = res.ok

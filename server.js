@@ -31,6 +31,19 @@ app.post('/api/dream', async (req, res) => {
   }
 });
 
+// ---------- GET TUTTI I SOGNI ----------
+app.get('/api/dreams', async (req, res) => {
+  try {
+    // Prendi tutti i sogni, ordinati dal più recente al più vecchio
+    const dreams = await Dream.find().sort({ createdAt: -1 }).limit(200);
+    res.json(dreams);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server Error');
+  }
+});
+
+
 // ---------- GENERA QR CODE SU POSTER ----------
 app.get('/generateQR', async (req, res) => {
   const BASE_URL = process.env.BASE_URL || `http://localhost:3000`;
