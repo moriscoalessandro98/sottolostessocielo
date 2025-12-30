@@ -17,7 +17,10 @@ const DreamSchema = new mongoose.Schema({
   dream: String,
   createdAt: { type: Date, default: Date.now }
 });
-const Dream = mongoose.model('Dream', DreamSchema);
+
+// 'SOGNI_RICEVUTI' è il nome della collection
+const Dream = mongoose.model('Dream', DreamSchema, 'SOGNI_RICEVUTI');
+
 
 // ---------- POST DREAM ----------
 app.post('/api/dream', async (req, res) => {
