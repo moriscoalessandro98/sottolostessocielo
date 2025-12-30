@@ -175,7 +175,9 @@ function getSafePosition(text){
   do {
     x = Math.random() * (w - maxWidth - 20) + maxWidth/2 + 10;
     y = Math.random() * (h*0.7 - textHeight) + textHeight;
-    let tooClose = activeDreams.some(d => Math.hypot(d.x - x, d.y - y) < 500);
+    const minDistX = (textWidth + d.textWidth) / 2 + 50; // 50px margine extra
+    const minDistY = (textHeight + d.textHeight) / 2 + 50;
+    let tooClose = activeDreams.some(d => Math.abs(d.x - x) < minDistX && Math.abs(d.y - y) < minDistY);    
     if(!tooClose) break;
     tries++;
   } while(tries < 20);
