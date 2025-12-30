@@ -70,7 +70,7 @@ async function fetchDreams(){
     const res = await fetch("/api/dreams");
     if(res.ok){
       const data = await res.json();
-      dreams = shuffle(data.map(d=>d.dream));
+      dreams = shuffle(data); // <-- mantieni _id
       dreamIndex = 0;
     }
   } catch{}
@@ -136,7 +136,7 @@ function getNonOverlappingPosition(){
 
 // ---------- LOGICA SOGNI ---------- //
 let lastSpawnTime = 0;
-let lastDreamId = null; // salva l'id dell'ultimo sogno apparso
+let lastDreamId = null;
 
 function getNonOverlappingPosition(){
   let x, y, tries = 0;
@@ -144,11 +144,11 @@ function getNonOverlappingPosition(){
     x = Math.random()*w*0.8 + w*0.1;
     y = Math.random()*h*0.6 + h*0.2;
     let tooClose = activeDreams.some(d=>{
-      return Math.hypot(d.x - x, d.y - y) < 300; // distanza minima aumentata
+      return Math.hypot(d.x - x, d.y - y) < 250; // distanza minima aumentata
     });
     if(!tooClose) break;
     tries++;
-  }while(tries<20);
+  }while(tries<50); // più tentativi
   return {x,y};
 }
 
@@ -156,7 +156,6 @@ function manageDreams(dt){
   lastSpawnTime += dt;
 
   if(lastSpawnTime > 300 && dreams.length>0){
-    // trova un sogno diverso dall'ultimo
     let dream;
     let attempts = 0;
     do{
@@ -168,7 +167,7 @@ function manageDreams(dt){
     lastDreamId = dream._id;
 
     const {x,y} = getNonOverlappingPosition();
-    activeDreams.push(new Dream(dream.dream, x, y)); // dream.dream è il testo
+    activeDreams.push(new Dream(dream.dream, x, y));
     lastSpawnTime = 0;
   }
 
