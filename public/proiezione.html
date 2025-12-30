@@ -64,7 +64,6 @@ function spawnComet() {
 let dreams = [];
 let activeDreams = [];
 let dreamIndex = 0;
-let lastSpawnTime = 0;
 
 async function fetchDreams(){
   try{
@@ -136,20 +135,44 @@ function getNonOverlappingPosition(){
 }
 
 // ---------- LOGICA SOGNI ---------- //
+let lastSpawnTime = 0;
+let lastDreamId = null; // salva l'id dell'ultimo sogno apparso
+
+function getNonOverlappingPosition(){
+  let x, y, tries = 0;
+  do{
+    x = Math.random()*w*0.8 + w*0.1;
+    y = Math.random()*h*0.6 + h*0.2;
+    let tooClose = activeDreams.some(d=>{
+      return Math.hypot(d.x - x, d.y - y) < 300; // distanza minima aumentata
+    });
+    if(!tooClose) break;
+    tries++;
+  }while(tries<20);
+  return {x,y};
+}
+
 function manageDreams(dt){
   lastSpawnTime += dt;
-  
-  // spawn di una nuova frase ogni 5 secondi
+
   if(lastSpawnTime > 300 && dreams.length>0){
+    // trova un sogno diverso dall'ultimo
+    let dream;
+    let attempts = 0;
+    do{
+      dream = dreams[dreamIndex % dreams.length];
+      dreamIndex++;
+      attempts++;
+    } while(dream._id === lastDreamId && attempts < dreams.length);
+
+    lastDreamId = dream._id;
+
     const {x,y} = getNonOverlappingPosition();
-    activeDreams.push(new Dream(dreams[dreamIndex % dreams.length], x, y));
-    dreamIndex++;
+    activeDreams.push(new Dream(dream.dream, x, y)); // dream.dream è il testo
     lastSpawnTime = 0;
   }
 
-  // update di tutte le frasi attive
   activeDreams.forEach(d=>d.update(dt));
-  // rimuovi quelle invisibili
   activeDreams = activeDreams.filter(d=>d.visible);
 }
 
