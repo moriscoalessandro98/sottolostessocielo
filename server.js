@@ -7,7 +7,7 @@ app.use(express.static('public')); // left_person.png e right_person.png
 app.use(express.json());
 
 // ---------- MONGODB ----------
-mongoose.connect('mongodb+srv://moriscoalessandro98_db_user:M0YfI409MMFdRECm@alexcluster.xxbqbtp.mongodb.net/sogni');
+mongoose.connect(process.env.MONGO_URI);
 mongoose.connection.on('error', err => console.error('MongoDB error:', err));
 mongoose.connection.once('open', () => console.log('MongoDB connesso ✅'));
 
@@ -35,7 +35,8 @@ app.post('/api/dream', async (req, res) => {
 // ---------- GENERA QR CODE SU POSTER ----------
 app.get('/generateQR/:id', async (req,res)=>{
   const id = req.params.id;
-  const url = `http://192.168.1.12:3000/index.html?id=${id}`;
+  const BASE_URL = process.env.BASE_URL;
+  const url = `${BASE_URL}/index.html?id=${id}`;
   try {
     const qr = await QRCode.toDataURL(url);
 
@@ -199,4 +200,8 @@ animate();
 });
 
 // ---------- SERVER ----------
-app.listen(3000,'0.0.0.0',()=>console.log('🌙 server attivo su http://192.168.1.12:3000'));
+const PORT = process.env.PORT;
+
+app.listen(PORT, () => {
+  console.log(`🌙 Server attivo sulla porta ${PORT}`);
+});
