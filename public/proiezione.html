@@ -19,17 +19,6 @@ canvas {
   z-index: 0; 
   display:block;
 }
-.dream {
-  position: absolute;
-  color: #fff;
-  font-size: 22px;
-  font-weight: 500;
-  text-align: center;
-  white-space: pre-line;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 2s ease-in-out;
-}
 </style>
 </head>
 <body>
@@ -74,16 +63,13 @@ function spawnComet() {
 // ---------- SOGNI ---------- //
 let dreams = [];
 let activeDreams = [];
-let dreamIndex = 0;
 
 async function fetchDreams(){
   try{
     const res = await fetch("/api/dreams");
     if(res.ok){
       const data = await res.json();
-      dreams = data.map(d=>d.dream);
-      dreams = shuffle(dreams);
-      dreamIndex = 0;
+      dreams = shuffle(data.map(d=>d.dream));
     }
   } catch{}
 }
@@ -98,25 +84,16 @@ function shuffle(array){
 
 // ---------- DREAM CLASS ---------- //
 class Dream {
-  constructor(text, delay){
+  constructor(text, x, y){
     this.text = text;
+    this.x = x;
+    this.y = y;
     this.opacity = 0;
-    this.x = Math.random()*w*0.8 + w*0.1;
-    this.y = Math.random()*h*0.6 + h*0.2;
-    this.delay = delay;
-    this.timer = 0;
     this.visible = false;
   }
-  update(dt){
-    this.timer += dt;
-    if(this.timer >= this.delay && !this.visible){
-      this.visible = true;
-      this.timer = 0;
-    }
-    if(this.visible){
-      this.opacity += 0.01;
-      if(this.opacity>0.9) this.opacity=0.9;
-    }
+  fadeIn(){
+    this.opacity += 0.01;
+    if(this.opacity>0.9) this.opacity=0.9;
   }
   fadeOut(){
     this.opacity -= 0.01;
@@ -135,26 +112,48 @@ class Dream {
 }
 
 // ---------- LOGICA SOGNI ---------- //
-let timer = 0;
+let dreamTimer = 0;
+let sequenceIndex = 0;
 function manageDreams(dt){
-  timer += dt;
-  if(activeDreams.length<2 && dreams.length>0){
-    const delay = activeDreams.length===0 ? 0 : 3; // coppia di frasi con 3s di distanza
-    const d = new Dream(dreams[dreamIndex % dreams.length], delay);
+  dreamTimer += dt;
+
+  // Se non ci sono sogni, non fare nulla
+  if(dreams.length===0) return;
+
+  // Gestione sequenziale
+  if(dreamTimer>180){ // 180 frame ~3s
+    const x1 = Math.random()*w*0.7 + w*0.15;
+    const y1 = Math.random()*h*0.5 + h*0.25;
+    const d = new Dream(dreams[sequenceIndex % dreams.length], x1, y1);
     activeDreams.push(d);
-    dreamIndex++;
+    sequenceIndex++;
+
+    // seconda frase della coppia 3s dopo
+    setTimeout(()=>{
+      const x2 = Math.random()*w*0.7 + w*0.15;
+      const y2 = Math.random()*h*0.5 + h*0.25;
+      const d2 = new Dream(dreams[sequenceIndex % dreams.length], x2, y2);
+      activeDreams.push(d2);
+      sequenceIndex++;
+    },3000);
+
+    dreamTimer = 0;
   }
 
-  activeDreams.forEach(d=>d.update(dt));
-  // rimuovi quelle completamente scomparse
-  if(activeDreams.length>0 && activeDreams[0].opacity>=0.9 && timer>8){
-    activeDreams[0].fadeOut();
-    if(activeDreams[0].opacity<=0) activeDreams.shift();
-    timer=0;
-  }
+  // fade in/out
+  activeDreams.forEach((d,i)=>{
+    if(i<activeDreams.length-2){ // lascia visibili solo ultime due
+      d.fadeOut();
+    } else {
+      d.fadeIn();
+    }
+  });
+
+  // rimuovi quelli invisibili
+  activeDreams = activeDreams.filter(d=>d.opacity>0);
 }
 
-// ---------- DISEGNA ---------- //
+// ---------- ANIMAZIONE ---------- //
 let lastTime = 0;
 function animate(time=0){
   const dt = (time - lastTime)/16.666;
@@ -199,6 +198,7 @@ function animate(time=0){
 animate();
 fetchDreams();
 setInterval(fetchDreams, 8000);
+
 </script>
 </body>
 </html>
