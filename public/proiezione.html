@@ -60,36 +60,6 @@ function spawnComet() {
   }
 }
 
-// ---------- PARTICELLE ---------- //
-const particles = [];
-class Particle {
-  constructor(x, y) {
-    this.x = x;
-    this.y = y;
-    this.vx = (Math.random() - 0.5) * 2.5;
-    this.vy = (Math.random() - 0.5) * 2.5;
-    this.size = Math.random() * 3 + 1;
-    this.life = 0;
-    this.maxLife = Math.random() * 40 + 30;
-    this.color = `hsl(${Math.random()*360}, 70%, 70%)`;
-  }
-  update() {
-    this.x += this.vx;
-    this.y += this.vy;
-    this.life++;
-    this.size *= 0.96;
-  }
-  draw(ctx) {
-    ctx.globalAlpha = 1 - this.life / this.maxLife;
-    ctx.fillStyle = this.color;
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, this.size, 0, Math.PI*2);
-    ctx.fill();
-    ctx.globalAlpha = 1;
-  }
-  done() { return this.life >= this.maxLife; }
-}
-
 // ---------- SOGNI ---------- //
 let dreams = [];
 let activeDreams = [];
@@ -123,24 +93,17 @@ class Dream {
     this.opacity = 0;
     this.timer = 0;
     this.visible = true;
-    this.particlesCreated = false;
   }
   update(dt){
     this.timer += dt;
-    if(this.timer < 60){ // fade-in ~1s
+    if(this.timer < 60){ // fade-in
       this.opacity += 0.015;
       if(this.opacity>0.9) this.opacity=0.9;
-    } else if(this.timer > 550){ // fade-out dopo 10s
+    } else if(this.timer > 400){ // fade-out
       this.opacity -= 0.01;
       if(this.opacity<=0){
         this.opacity=0;
         this.visible=false;
-        if(!this.particlesCreated){
-          for(let i=0;i<15;i++){
-            particles.push(new Particle(this.x, this.y));
-          }
-          this.particlesCreated = true;
-        }
       }
     }
   }
@@ -162,7 +125,7 @@ function getNonOverlappingPosition(){
   do{
     x = Math.random()*w*0.8 + w*0.1;
     y = Math.random()*h*0.6 + h*0.2;
-    let tooClose = activeDreams.some(d=>Math.hypot(d.x - x, d.y - y)<300);
+    let tooClose = activeDreams.some(d=>Math.hypot(d.x - x, d.y - y)<150);
     if(!tooClose) break;
     tries++;
   } while(tries<20);
@@ -171,7 +134,6 @@ function getNonOverlappingPosition(){
 
 // ---------- LOGICA SOGNI ---------- //
 let lastSpawnTime = 0;
-
 function manageDreams(dt){
   lastSpawnTime += dt;
   if(lastSpawnTime > 300 && dreams.length>0){
@@ -194,8 +156,8 @@ function manageDreams(dt){
 
 // ---------- COSTELLAZIONI ---------- //
 function drawConstellations(){
-  ctx.strokeStyle = "rgba(255,255,255,0.15)";
-  ctx.lineWidth = 0.5;
+  ctx.strokeStyle = "rgba(255,255,255,0.5)";
+  ctx.lineWidth = 1;
   for(let i=0;i<activeDreams.length;i++){
     for(let j=i+1;j<activeDreams.length;j++){
       const d1 = activeDreams[i];
@@ -249,13 +211,6 @@ function animate(time=0){
   // sogni
   manageDreams(dt);
   activeDreams.forEach(d=>d.draw());
-
-  // particelle
-  particles.forEach((p,i)=>{
-    p.update();
-    p.draw(ctx);
-    if(p.done()) particles.splice(i,1);
-  });
 
   // costellazioni
   drawConstellations();
