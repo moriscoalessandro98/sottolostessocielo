@@ -29,14 +29,10 @@ const canvas = document.getElementById("sky");
 const ctx = canvas.getContext("2d");
 let w, h;
 
-function resize() { 
-  w = canvas.width = window.innerWidth; 
+function resize() {
+  w = canvas.width = window.innerWidth;
   h = canvas.height = window.innerHeight;
-
-  // aggiorna linee dei sogni attivi
-  activeDreams.forEach(d => d.updateLines());
 }
-
 window.addEventListener("resize", resize);
 resize();
 
@@ -93,38 +89,36 @@ function shuffle(array){
   return array;
 }
 
-// ---------- CLASSE DREAM RESPONSIVA ---------- //
+// ---------- CLASSE DREAM MULTILINEA ---------- //
 class Dream {
-  constructor(text, x, y){
+  constructor(text, x, y, maxWidth){
     this.text = text;
     this.x = x;
     this.y = y;
     this.opacity = 0;
     this.timer = 0;
     this.visible = true;
-    this.lines = [];
-    this.updateLines(); // calcola linee iniziali
+    this.maxWidth = maxWidth;
+    this.lines = this.wrapText(text, maxWidth);
+    this.lineHeight = 26;
   }
 
-  updateLines(){
-    ctx.font = "22px Georgia";
-    const maxWidth = Math.min(w * 0.4, 600); // larghezza massima adattiva
-    const words = this.text.split(" ");
+  wrapText(text, maxWidth){
+    const words = text.split(' ');
     const lines = [];
-    let line = "";
-
-    for(let word of words){
-      const testLine = line ? line + " " + word : word;
-      if(ctx.measureText(testLine).width > maxWidth){
+    let line = '';
+    words.forEach(word => {
+      const testLine = line + (line ? ' ' : '') + word;
+      const width = ctx.measureText(testLine).width;
+      if(width > maxWidth){
         if(line) lines.push(line);
         line = word;
       } else {
         line = testLine;
       }
-    }
+    });
     if(line) lines.push(line);
-    this.lines = lines;
-    this.maxWidth = maxWidth;
+    return lines;
   }
 
   update(dt){
@@ -148,29 +142,45 @@ class Dream {
       ctx.fillStyle = "#fff";
       ctx.textAlign = "center";
       this.lines.forEach((line,i)=>{
-        ctx.fillText(line, this.x, this.y + i*26);
+        ctx.fillText(line, this.x, this.y + i*this.lineHeight);
       });
       ctx.globalAlpha = 1;
     }
   }
 }
 
-// ---------- POSIZIONE SICURA PER LE FRASI ---------- //
+// ---------- POSIZIONE SICURA ---------- //
 function getSafePosition(text){
-  const tempDream = new Dream(text, 0, 0);
-  const textHeight = tempDream.lines.length * 26;
+  const maxWidth = w * 0.6; // max 60% della larghezza
+  ctx.font = "22px Georgia";
+  const lineHeight = 26;
+
+  // stima numero righe
+  const words = text.split(' ');
+  let estimatedLines = 1;
+  let line = '';
+  words.forEach(word => {
+    const testLine = line + (line ? ' ' : '') + word;
+    if(ctx.measureText(testLine).width > maxWidth){
+      if(line) estimatedLines++;
+      line = word;
+    } else {
+      line = testLine;
+    }
+  });
+
+  const textHeight = estimatedLines * lineHeight;
 
   let x, y, tries = 0;
   do {
-    x = Math.random() * (w - tempDream.maxWidth - 20) + tempDream.maxWidth/2 + 10;
-    y = Math.random() * (h*0.7 - textHeight) + textHeight/2 + 10;
-
+    x = Math.random() * (w - maxWidth - 20) + maxWidth/2 + 10;
+    y = Math.random() * (h*0.7 - textHeight) + textHeight;
     let tooClose = activeDreams.some(d => Math.hypot(d.x - x, d.y - y) < 250);
     if(!tooClose) break;
     tries++;
   } while(tries < 20);
 
-  return {x, y};
+  return {x, y, maxWidth};
 }
 
 // ---------- LOGICA SOGNI ---------- //
@@ -187,8 +197,8 @@ function manageDreams(dt){
     } while(dream._id === lastDreamId && attempts < dreams.length);
 
     lastDreamId = dream._id;
-    const {x, y} = getSafePosition(dream.dream);
-    activeDreams.push(new Dream(dream.dream, x, y));
+    const {x, y, maxWidth} = getSafePosition(dream.dream);
+    activeDreams.push(new Dream(dream.dream, x, y, maxWidth));
     lastSpawnTime = 0;
   }
   activeDreams.forEach(d => d.update(dt));
@@ -240,7 +250,7 @@ function animate(time=0){
 animate();
 fetchDreams();
 setInterval(fetchDreams,8000);
-
 </script>
+
 </body>
 </html>
