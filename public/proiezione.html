@@ -89,7 +89,7 @@ function shuffle(array){
   return array;
 }
 
-// ---------- CLASSE DREAM MULTILINEA ---------- //
+// ---------- CLASSE DREAM MULTILINEA ----------
 class Dream {
   constructor(text, x, y, maxWidth){
     this.text = text;
@@ -101,7 +101,8 @@ class Dream {
     this.maxWidth = maxWidth;
     this.lines = this.wrapText(text, maxWidth);
     this.lineHeight = 26;
-    // Salva dimensioni reali
+
+    // dimensioni reali del testo
     this.textWidth = Math.min(maxWidth, Math.max(...this.lines.map(line => ctx.measureText(line).width)));
     this.textHeight = this.lines.length * this.lineHeight;
   }
@@ -125,10 +126,10 @@ class Dream {
 
   update(dt){
     this.timer += dt;
-    if(this.timer < 60){ // fade-in
+    if(this.timer < 60){ 
       this.opacity += 0.015;
       if(this.opacity>0.9) this.opacity=0.9;
-    } else if(this.timer > 400){ // fade-out
+    } else if(this.timer > 400){ 
       this.opacity -= 0.01;
       if(this.opacity<=0){
         this.opacity=0;
@@ -151,12 +152,12 @@ class Dream {
   }
 }
 
-// ---------- POSIZIONE SICURA ---------- //
+// ---------- POSIZIONE SICURA ----------
 function getSafePosition(text){
-  const maxWidth = w * 0.6; // max 60% della larghezza
+  const maxWidth = w * 0.6;
   const lineHeight = 26;
 
-  // stima numero righe
+  // calcolo multilinea
   const words = text.split(' ');
   let estimatedLines = 1;
   let line = '';
@@ -174,12 +175,12 @@ function getSafePosition(text){
   const textWidth = Math.min(maxWidth, ctx.measureText(text).width);
 
   let x, y, tries = 0;
+  const margin = 10;
   do {
-    x = Math.random() * (w - textWidth - 20) + textWidth/2 + 10;
-    y = Math.random() * (h*0.7 - textHeight) + textHeight;
+    x = Math.random() * (w - textWidth - 2*margin) + textWidth/2 + margin;
+    y = Math.random() * (h*0.7 - textHeight - 2*margin) + textHeight + margin;
 
-    // distanza minima proporzionale alla dimensione della frase
-    const minDist = Math.max(textWidth, textHeight) * 1.5; // moltiplica per 1.5 per spazio extra
+    // controllo sovrapposizione con tutte le frasi attive
     let tooClose = activeDreams.some(d => {
       const dx = Math.abs(d.x - x);
       const dy = Math.abs(d.y - y);
@@ -188,16 +189,18 @@ function getSafePosition(text){
 
     if(!tooClose) break;
     tries++;
-  } while(tries < 100); // più tentativi
+  } while(tries < 100);
 
+  if(tries >= 100) return null; // nessuno spazio disponibile
   return {x, y, maxWidth};
 }
 
-// ---------- LOGICA SOGNI ---------- //
+// ---------- LOGICA SOGNI ----------
 let lastSpawnTime = 0;
+const MAX_ACTIVE_DREAMS = 80; // massimo sullo schermo
 function manageDreams(dt){
   lastSpawnTime += dt;
-  if(lastSpawnTime > 300 && dreams.length > 0){
+  if(lastSpawnTime > 600 && dreams.length > 0 && activeDreams.length < MAX_ACTIVE_DREAMS){
     let dream;
     let attempts = 0;
     do {
@@ -207,10 +210,14 @@ function manageDreams(dt){
     } while(dream._id === lastDreamId && attempts < dreams.length);
 
     lastDreamId = dream._id;
-    const {x, y, maxWidth} = getSafePosition(dream.dream);
-    activeDreams.push(new Dream(dream.dream, x, y, maxWidth));
-    lastSpawnTime = 0;
+
+    const pos = getSafePosition(dream.dream);
+    if(pos){ // solo se c'è spazio disponibile
+      activeDreams.push(new Dream(dream.dream, pos.x, pos.y, pos.maxWidth));
+      lastSpawnTime = 0;
+    }
   }
+
   activeDreams.forEach(d => d.update(dt));
   activeDreams = activeDreams.filter(d => d.visible);
 }
