@@ -28,40 +28,37 @@ canvas {
 const canvas = document.getElementById("sky");
 const ctx = canvas.getContext("2d");
 let w, h;
-function resize(){ w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; }
+
+function resize() {
+  w = canvas.width = window.innerWidth;
+  h = canvas.height = window.innerHeight;
+}
 window.addEventListener("resize", resize);
 resize();
 
 // ---------- STELLE ---------- //
-const STAR_COUNT = 400;
+const STAR_COUNT = 500;
 const stars = [];
 for(let i=0;i<STAR_COUNT;i++){
   stars.push({
     x: Math.random()*w,
     y: Math.random()*h,
-    r: Math.random()*1.5+0.2,
-    layer: Math.random()*3+1, // per velocità e parallax
+    r: Math.random()*1.2 + 0.3,
     angle: Math.random()*Math.PI*2,
-    speed: Math.random()*0.0005 + 0.0001
+    speed: Math.random()*0.0005 + 0.0001,
+    flicker: Math.random()*Math.PI*2
   });
 }
 
-// Pre-render stelle su canvas offscreen
-const starCanvas = document.createElement('canvas');
-starCanvas.width = 2; starCanvas.height = 2;
-const sctx = starCanvas.getContext('2d');
-sctx.fillStyle = '#fff';
-sctx.fillRect(0,0,2,2);
-
 // ---------- COMETE ---------- //
 const comets = [];
-function spawnComet(){
+function spawnComet() {
   if(Math.random()<0.005 && comets.length<3){
     comets.push({
       x: Math.random()*w,
       y: Math.random()*h*0.5,
       vx: Math.random()*4+2,
-      vy: Math.random()*2+1,
+      vy: Math.random()*1+0.5,
       life: 0,
       maxLife: Math.random()*60+60
     });
@@ -94,45 +91,54 @@ function shuffle(array){
 }
 
 class Dream {
-  constructor(text,x,y){
-    this.text=text;
-    this.x=x;
-    this.y=y;
-    this.opacity=0;
-    this.timer=0;
-    this.visible=true;
+  constructor(text, x, y){
+    this.text = text;
+    this.x = x;
+    this.y = y;
+    this.opacity = 0;
+    this.timer = 0;
+    this.visible = true;
   }
   update(dt){
-    this.timer+=dt;
-    if(this.timer<60){ this.opacity+=0.015; if(this.opacity>0.9)this.opacity=0.9; }
-    else if(this.timer>400){ this.opacity-=0.01; if(this.opacity<=0){ this.opacity=0; this.visible=false; } }
+    this.timer += dt;
+    this.y -= 0.02*dt; // leggero movimento verso l'alto
 
-    // fluttuazione leggera
-    this.y += Math.sin(this.timer/20)*0.2;
-    this.x += Math.cos(this.timer/30)*0.1;
+    if(this.timer < 60){ // fade-in
+      this.opacity += 0.015;
+      if(this.opacity>0.9) this.opacity=0.9;
+    } else if(this.timer > 400){ // fade-out
+      this.opacity -= 0.02;
+      if(this.opacity<=0){
+        this.opacity=0;
+        this.visible=false;
+      }
+    }
   }
   draw(){
     if(this.opacity>0){
-      ctx.globalAlpha=this.opacity;
-      ctx.font="22px Georgia";
-      ctx.fillStyle="#fff";
-      ctx.textAlign="center";
-      ctx.shadowBlur=8;
-      ctx.shadowColor="#fff";
-      ctx.fillText(this.text,this.x,this.y);
-      ctx.shadowBlur=0;
-      ctx.globalAlpha=1;
+      ctx.globalAlpha = this.opacity;
+      ctx.font = "28px Georgia";
+      ctx.textAlign = "center";
+
+      // glow effetto sogno
+      ctx.shadowColor = "#fff";
+      ctx.shadowBlur = 15;
+      ctx.fillStyle = "#fff";
+      ctx.fillText(this.text, this.x, this.y);
+
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 1;
     }
   }
 }
 
 // ---------- POSIZIONE NON SOVRAPPOSITIVA ---------- //
 function getNonOverlappingPosition(){
-  let x,y,tries=0;
+  let x, y, tries=0;
   do{
-    x=Math.random()*w*0.8 + w*0.1;
-    y=Math.random()*h*0.6 + h*0.2;
-    let tooClose = activeDreams.some(d=>Math.hypot(d.x-x,d.y-y)<250);
+    x = Math.random()*w*0.8 + w*0.1;
+    y = Math.random()*h*0.6 + h*0.2;
+    let tooClose = activeDreams.some(d=>Math.hypot(d.x - x, d.y - y)<250);
     if(!tooClose) break;
     tries++;
   } while(tries<20);
@@ -140,64 +146,68 @@ function getNonOverlappingPosition(){
 }
 
 // ---------- LOGICA SOGNI ---------- //
-let lastSpawnTime=0;
+let lastSpawnTime = 0;
 function manageDreams(dt){
-  lastSpawnTime+=dt;
-  if(lastSpawnTime>300 && dreams.length>0){
-    let dream, attempts=0;
+  lastSpawnTime += dt;
+  if(lastSpawnTime > 300 && dreams.length>0){
+    let dream;
+    let attempts = 0;
     do{
-      dream=dreams[dreamIndex % dreams.length];
+      dream = dreams[dreamIndex % dreams.length];
       dreamIndex++;
       attempts++;
-    } while(dream._id===lastDreamId && attempts<dreams.length);
-    lastDreamId=dream._id;
-    const {x,y}=getNonOverlappingPosition();
-    activeDreams.push(new Dream(dream.dream,x,y));
-    lastSpawnTime=0;
+    } while(dream._id === lastDreamId && attempts < dreams.length);
+
+    lastDreamId = dream._id;
+    const {x,y} = getNonOverlappingPosition();
+    activeDreams.push(new Dream(dream.dream, x, y));
+    lastSpawnTime = 0;
   }
   activeDreams.forEach(d=>d.update(dt));
-  activeDreams=activeDreams.filter(d=>d.visible);
+  activeDreams = activeDreams.filter(d=>d.visible);
 }
 
 // ---------- ANIMAZIONE ---------- //
-let lastTime=0;
+let lastTime = 0;
 function animate(time=0){
-  const dt=(time-lastTime)/16.666;
+  const dt = (time - lastTime)/16.666;
   lastTime=time;
 
-  // cielo con gradient dinamico
+  // sfondo gradiente morbido
   const gradient = ctx.createLinearGradient(0,0,0,h);
-  gradient.addColorStop(0,"rgba(10,10,30,0.05)");
-  gradient.addColorStop(1,"rgba(0,0,0,0.1)");
-  ctx.fillStyle=gradient;
+  gradient.addColorStop(0,"#000010");
+  gradient.addColorStop(1,"#000000");
+  ctx.fillStyle = gradient;
   ctx.fillRect(0,0,w,h);
 
-  // stelle con parallax
+  // stelle con flicker
   stars.forEach(s=>{
     s.angle += s.speed*dt;
-    const cx = w/2 + Math.cos(s.angle)*(s.x-w/2)/s.layer - Math.sin(s.angle)*(s.y-h/2)/s.layer;
-    const cy = h/2 + Math.sin(s.angle)*(s.x-w/2)/s.layer + Math.cos(s.angle)*(s.y-h/2)/s.layer;
-    ctx.globalAlpha=0.6;
-    ctx.drawImage(starCanvas,cx,cy);
+    s.flicker += 0.05*dt;
+    const cx = w/2 + Math.cos(s.angle)*(s.x-w/2) - Math.sin(s.angle)*(s.y-h/2);
+    const cy = h/2 + Math.sin(s.angle)*(s.x-w/2) + Math.cos(s.angle)*(s.y-h/2);
+    const alpha = 0.3 + 0.3*Math.sin(s.flicker);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle="#fff";
+    ctx.beginPath();
+    ctx.arc(cx,cy,s.r,0,Math.PI*2);
+    ctx.fill();
   });
-  ctx.globalAlpha=1;
+  ctx.globalAlpha = 1;
 
-  // comete
+  // comete eteree
   spawnComet();
-  for(let i=comets.length-1;i>=0;i--){
-    const c=comets[i];
-    const grad=ctx.createLinearGradient(c.x,c.y,c.x-c.vx*4,c.y-c.vy*4);
-    grad.addColorStop(0,'rgba(255,255,255,0.8)');
-    grad.addColorStop(1,'rgba(200,200,255,0)');
-    ctx.strokeStyle=grad;
-    ctx.lineWidth=1;
+  comets.forEach((c,i)=>{
+    ctx.strokeStyle = `rgba(255,255,255,${0.5 + 0.5*Math.random()})`;
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(c.x,c.y);
-    ctx.lineTo(c.x - c.vx*4,c.y - c.vy*4);
+    ctx.lineTo(c.x - c.vx*4, c.y - c.vy*4);
     ctx.stroke();
-    c.x+=c.vx; c.y+=c.vy; c.life++;
+    c.x += c.vx; c.y += c.vy;
+    c.life++;
     if(c.life>c.maxLife) comets.splice(i,1);
-  }
+  });
 
   // sogni
   manageDreams(dt);
@@ -209,6 +219,7 @@ function animate(time=0){
 animate();
 fetchDreams();
 setInterval(fetchDreams,8000);
+
 </script>
 </body>
 </html>
