@@ -211,13 +211,7 @@ draw();
 /* ---------- INVIO SOGNO ---------- */
 async function send() {
   const dream = document.getElementById("dream").value;
-  const id = new URLSearchParams(window.location.search).get("id");
   const msg = document.getElementById("msg");
-
-  if (!id) {
-    msg.innerText = "Questo cielo non ha un nome.";
-    return;
-  }
 
   if (!dream.trim()) {
     msg.innerText = "Un sogno non può essere vuoto.";
@@ -228,7 +222,7 @@ async function send() {
     const res = await fetch("/api/dream", {
       method: "POST",
       headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ dream, connectionId: id })
+      body: JSON.stringify({ dream }) // rimuovi connectionId
     });
 
     msg.innerText = res.ok
