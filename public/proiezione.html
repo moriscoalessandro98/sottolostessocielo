@@ -60,17 +60,46 @@ function spawnComet() {
   }
 }
 
+// ---------- PARTICELLE ---------- //
+const particles = [];
+class Particle {
+  constructor(x, y){
+    this.x = x;
+    this.y = y;
+    this.vx = (Math.random()-0.5)*2;
+    this.vy = (Math.random()-0.5)*2;
+    this.size = Math.random()*2+1;
+    this.opacity = 1;
+  }
+  update(){
+    this.x += this.vx;
+    this.y += this.vy;
+    this.opacity -= 0.02;
+  }
+  draw(){
+    if(this.opacity>0){
+      ctx.globalAlpha = this.opacity;
+      ctx.fillStyle = "#fff";
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.size, 0, Math.PI*2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  }
+}
+
 // ---------- SOGNI ---------- //
 let dreams = [];
 let activeDreams = [];
 let dreamIndex = 0;
+let lastDreamId = null;
 
 async function fetchDreams(){
   try{
     const res = await fetch("/api/dreams");
     if(res.ok){
       const data = await res.json();
-      dreams = shuffle(data); // <-- mantieni _id
+      dreams = shuffle(data);
       dreamIndex = 0;
     }
   } catch{}
@@ -104,6 +133,10 @@ class Dream {
       if(this.opacity<=0){
         this.opacity=0;
         this.visible=false;
+        // genera particelle
+        for(let i=0;i<15;i++){
+          particles.push(new Particle(this.x, this.y));
+        }
       }
     }
   }
@@ -126,36 +159,21 @@ function getNonOverlappingPosition(){
     x = Math.random()*w*0.8 + w*0.1;
     y = Math.random()*h*0.6 + h*0.2;
     let tooClose = activeDreams.some(d=>{
-      return Math.hypot(d.x - x, d.y - y) < 120;
+      return Math.hypot(d.x - x, d.y - y) < 300; // distanza minima aumentata
     });
     if(!tooClose) break;
     tries++;
-  }while(tries<10);
+  }while(tries<20);
   return {x,y};
 }
 
 // ---------- LOGICA SOGNI ---------- //
 let lastSpawnTime = 0;
-let lastDreamId = null;
-
-function getNonOverlappingPosition(){
-  let x, y, tries = 0;
-  do{
-    x = Math.random()*w*0.8 + w*0.1;
-    y = Math.random()*h*0.6 + h*0.2;
-    let tooClose = activeDreams.some(d=>{
-      return Math.hypot(d.x - x, d.y - y) < 250; // distanza minima aumentata
-    });
-    if(!tooClose) break;
-    tries++;
-  }while(tries<50); // più tentativi
-  return {x,y};
-}
 
 function manageDreams(dt){
   lastSpawnTime += dt;
-
   if(lastSpawnTime > 300 && dreams.length>0){
+    // trova un sogno diverso dall'ultimo
     let dream;
     let attempts = 0;
     do{
@@ -167,7 +185,7 @@ function manageDreams(dt){
     lastDreamId = dream._id;
 
     const {x,y} = getNonOverlappingPosition();
-    activeDreams.push(new Dream(dream.dream, x, y));
+    activeDreams.push(new Dream(dream.dream, x, y)); // dream.dream è il testo
     lastSpawnTime = 0;
   }
 
@@ -214,12 +232,20 @@ function animate(time=0){
   manageDreams(dt);
   activeDreams.forEach(d=>d.draw());
 
+  // particelle
+  particles.forEach((p,i)=>{
+    p.update();
+    p.draw();
+    if(p.opacity<=0) particles.splice(i,1);
+  });
+
   requestAnimationFrame(animate);
 }
 
 animate();
 fetchDreams();
 setInterval(fetchDreams, 8000);
+
 </script>
 </body>
 </html>
