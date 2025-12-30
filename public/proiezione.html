@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Proiezione da soffitto</title>
+<title>Proiezione dei sogni</title>
 <style>
 html, body {
   margin: 0; padding: 0;
@@ -113,11 +113,7 @@ class Dream {
       ctx.font = "22px Georgia";
       ctx.fillStyle = "#fff";
       ctx.textAlign = "center";
-      ctx.save();
-      ctx.translate(this.x, this.y);
-      ctx.rotate(-0.03); // lieve inclinazione
-      ctx.fillText(this.text, 0, 0);
-      ctx.restore();
+      ctx.fillText(this.text, this.x, this.y);
       ctx.globalAlpha = 1;
     }
   }
@@ -128,7 +124,7 @@ function getNonOverlappingPosition(){
   let x, y, tries=0;
   do{
     x = Math.random()*w*0.8 + w*0.1;
-    y = Math.random()*h*0.4 + h*0.1; // alto sul soffitto
+    y = Math.random()*h*0.6 + h*0.2;
     let tooClose = activeDreams.some(d=>Math.hypot(d.x - x, d.y - y)<250);
     if(!tooClose) break;
     tries++;
@@ -136,37 +132,46 @@ function getNonOverlappingPosition(){
   return {x,y};
 }
 
+// ---------- POSIZIONE SICURA PER LE FRASI ---------- //
+function getSafePosition(text){
+  ctx.font = "22px Georgia";
+  const textWidth = ctx.measureText(text).width;
+
+  let x, y, tries = 0;
+  do {
+    // Genera x tra i margini laterali, considerando la larghezza del testo
+    x = Math.random() * (w - textWidth - 40) + 20; // 20px margine
+    // Genera y tra il 10% e il 60% dell'altezza per evitare che tocchi il basso del soffitto
+    y = Math.random() * (h*0.5) + h*0.1;
+    // Controllo collisioni con altri sogni
+    let tooClose = activeDreams.some(d => Math.hypot(d.x - x, d.y - y) < 250);
+    if(!tooClose) break;
+    tries++;
+  } while(tries < 20);
+  
+  return {x, y};
+}
+
 // ---------- LOGICA SOGNI ---------- //
 let lastSpawnTime = 0;
 function manageDreams(dt){
   lastSpawnTime += dt;
-  if(lastSpawnTime > 300 && dreams.length>0){
+  if(lastSpawnTime > 300 && dreams.length > 0){
     let dream;
     let attempts = 0;
-    do{
+    do {
       dream = dreams[dreamIndex % dreams.length];
       dreamIndex++;
       attempts++;
     } while(dream._id === lastDreamId && attempts < dreams.length);
 
     lastDreamId = dream._id;
-    const {x,y} = getNonOverlappingPosition();
+    const {x, y} = getSafePosition(dream.dream); // usa la nuova funzione
     activeDreams.push(new Dream(dream.dream, x, y));
     lastSpawnTime = 0;
   }
-  activeDreams.forEach(d=>d.update(dt));
-  activeDreams = activeDreams.filter(d=>d.visible);
-}
-
-// ---------- PROSPETTIVA ---------- //
-function perspective(x, y){
-  const depth = h - y;
-  const scale = 0.3 + 0.7*(depth/h);
-  return {
-    x: w/2 + (x - w/2)*scale,
-    y: y*0.6 + h*0.2,
-    r: scale
-  };
+  activeDreams.forEach(d => d.update(dt));
+  activeDreams = activeDreams.filter(d => d.visible);
 }
 
 // ---------- ANIMAZIONE ---------- //
@@ -175,28 +180,18 @@ function animate(time=0){
   const dt = (time - lastTime)/16.666;
   lastTime=time;
 
-  ctx.fillStyle = "rgba(0,0,0,0.9)";
+  // cielo e stelle
+  ctx.fillStyle = "rgba(0,0,0,0.05)";
   ctx.fillRect(0,0,w,h);
-
-  // oscillazione lieve per effetto proiettore
-  const tilt = 0.003 * Math.sin(time/1000);
-  ctx.save();
-  ctx.translate(w/2, h/2);
-  ctx.rotate(tilt);
-  ctx.translate(-w/2, -h/2);
-
-  // stelle
   stars.forEach(s=>{
     s.angle += s.speed*dt;
-    const {x: cx, y: cy, r} = perspective(s.x, s.y);
+    const cx = w/2 + Math.cos(s.angle)*(s.x-w/2) - Math.sin(s.angle)*(s.y-h/2);
+    const cy = h/2 + Math.sin(s.angle)*(s.x-w/2) + Math.cos(s.angle)*(s.y-h/2);
     ctx.globalAlpha = 0.6;
     ctx.fillStyle="#fff";
-    ctx.shadowBlur = 8;
-    ctx.shadowColor = "white";
     ctx.beginPath();
-    ctx.arc(cx,cy,r,0,Math.PI*2);
+    ctx.arc(cx,cy,s.r,0,Math.PI*2);
     ctx.fill();
-    ctx.shadowBlur = 0;
   });
   ctx.globalAlpha = 1;
 
@@ -213,8 +208,6 @@ function animate(time=0){
     c.life++;
     if(c.life>c.maxLife) comets.splice(i,1);
   });
-
-  ctx.restore(); // reset rotazione
 
   // sogni
   manageDreams(dt);
