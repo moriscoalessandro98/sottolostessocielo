@@ -1,0 +1,27 @@
+{
+  "name": "thread",
+  "version": "1.0.0",
+  "main": "thread.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.2.1",
+    "mongoose": "^9.1.0",
+    "qrcode": "^1.5.4"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/moriscoalessandro98/sottolostessocielo.git"
+  },
+  "bugs": {
+    "url": "https://github.com/moriscoalessandro98/sottolostessocielo/issues"
+  },
+  "homepage": "https://github.com/moriscoalessandro98/sottolostessocielo#readme",
+  "description": ""
+}

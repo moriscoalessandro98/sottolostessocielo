@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Un sogno</title>
+
+<style>
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  font-family: "Georgia", serif;
+  color: #fff;
+}
+
+canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+}
+
+.container {
+  position: relative;
+  z-index: 3;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.box {
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.15);
+  padding: 32px 28px;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+}
+
+.box p.intro {
+  font-size: 17px;
+  line-height: 1.7;
+  opacity: 0.95;
+  margin-bottom: 28px;
+}
+
+textarea {
+  box-sizing: border-box;
+  display: block;
+
+  width: 100%;
+  height: 120px;
+
+  margin: 0 auto;
+
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.3);
+
+  color: #fff;
+  padding: 14px;
+  font-size: 16px;
+  line-height: 1.4;
+
+  resize: none;
+  outline: none;
+}
+
+
+textarea::placeholder {
+  color: rgba(255,255,255,0.5);
+}
+
+button {
+  margin-top: 24px;
+  padding: 12px 28px;
+  background: transparent;
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.6);
+  cursor: pointer;
+  font-size: 14px;
+  letter-spacing: 1px;
+}
+
+#msg {
+  margin-top: 18px;
+  font-style: italic;
+  opacity: 0.85;
+}
+</style>
+</head>
+
+<body>
+
+<canvas id="sky"></canvas>
+
+<div class="container">
+  <div class="box">
+    <p class="intro">
+      Siamo sotto lo stesso cielo.<br>
+      Guardiamo le stesse stelle.<br>
+      Eppure in pochi sanno vederle.
+    </p>
+
+    <textarea id="dream" placeholder="Un sogno che non hai mai detto..."></textarea>
+
+    <button onclick="send()">Affida il sogno</button>
+
+    <div id="msg"></div>
+  </div>
+</div>
+
+<script>
+/* ---------- CANVAS ---------- */
+const canvas = document.getElementById("sky");
+const ctx = canvas.getContext("2d");
+
+let w, h;
+function resize() {
+  w = canvas.width = window.innerWidth;
+  h = canvas.height = window.innerHeight;
+}
+window.addEventListener("resize", resize);
+resize();
+
+/* ---------- STELLE ---------- */
+const stars = [];
+const STAR_COUNT = window.innerWidth < 600 ? 300 : 450;
+
+for (let i = 0; i < STAR_COUNT; i++) {
+  stars.push({
+    x: Math.random() * w,
+    y: Math.random() * h,
+    r: Math.random() * 1.2 + 0.2,
+    a: Math.random(),
+    tw: Math.random() * 0.002 + 0.0005
+  });
+}
+
+/* ---------- COMETE ---------- */
+const comets = [];
+
+function spawnComet() {
+  if (Math.random() < 0.003) {
+    comets.push({
+      x: Math.random() * w,
+      y: Math.random() * h * 0.5,
+      vx: Math.random() * 3 + 2,
+      vy: Math.random() * 1 + 0.5,
+      life: 0
+    });
+  }
+}
+
+/* ---------- NEBULOSA ---------- */
+function drawNebula() {
+  const g = ctx.createRadialGradient(
+    w * 0.6, h * 0.3, 50,
+    w * 0.6, h * 0.3, 400
+  );
+  g.addColorStop(0, "rgba(120,80,160,0.12)");
+  g.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,w,h);
+}
+
+/* ---------- DRAW ---------- */
+function draw() {
+  ctx.clearRect(0,0,w,h);
+
+  // stelle
+  stars.forEach(s => {
+    s.a += s.tw;
+    ctx.globalAlpha = 0.6 + Math.sin(s.a) * 0.4;
+    ctx.fillStyle = "#fff";
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // nebulosa
+  ctx.globalAlpha = 1;
+  drawNebula();
+
+  // comete
+  spawnComet();
+  comets.forEach((c, i) => {
+    ctx.strokeStyle = "rgba(255,255,255,0.8)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(c.x, c.y);
+    ctx.lineTo(c.x - c.vx * 4, c.y - c.vy * 4);
+    ctx.stroke();
+
+    c.x += c.vx;
+    c.y += c.vy;
+    c.life++;
+
+    if (c.life > 60) comets.splice(i, 1);
+  });
+
+  requestAnimationFrame(draw);
+}
+draw();
+
+/* ---------- INVIO SOGNO ---------- */
+async function send() {
+  const dream = document.getElementById("dream").value;
+  const id = new URLSearchParams(window.location.search).get("id");
+  const msg = document.getElementById("msg");
+
+  if (!id) {
+    msg.innerText = "Questo cielo non ha un nome.";
+    return;
+  }
+
+  if (!dream.trim()) {
+    msg.innerText = "Un sogno non può essere vuoto.";
+    return;
+  }
+
+  try {
+    const res = await fetch("/api/dream", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ dream, connectionId: id })
+    });
+
+    msg.innerText = res.ok
+      ? "Il sogno è stato affidato al cielo."
+      : "Qualcosa si è perso tra le stelle.";
+  } catch {
+    msg.innerText = "Il cielo non risponde.";
+  }
+}
+</script>
+
+</body>
+</html>
