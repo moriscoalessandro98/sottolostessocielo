@@ -119,19 +119,6 @@ class Dream {
   }
 }
 
-// ---------- POSIZIONE NON SOVRAPPOSITIVA ---------- //
-function getNonOverlappingPosition(){
-  let x, y, tries=0;
-  do{
-    x = Math.random()*w*0.8 + w*0.1;
-    y = Math.random()*h*0.6 + h*0.2;
-    let tooClose = activeDreams.some(d=>Math.hypot(d.x - x, d.y - y)<250);
-    if(!tooClose) break;
-    tries++;
-  } while(tries<20);
-  return {x,y};
-}
-
 // ---------- POSIZIONE SICURA PER LE FRASI ---------- //
 function getSafePosition(text){
   ctx.font = "22px Georgia";
@@ -139,10 +126,12 @@ function getSafePosition(text){
 
   let x, y, tries = 0;
   do {
-    // Genera x tra i margini laterali, considerando la larghezza del testo
-    x = Math.random() * (w - textWidth - 40) + 20; // 20px margine
-    // Genera y tra il 10% e il 60% dell'altezza per evitare che tocchi il basso del soffitto
-    y = Math.random() * (h*0.5) + h*0.1;
+    // Centra la frase, margine di 10px su entrambi i lati
+    x = Math.random() * (w - textWidth - 20) + 10;
+    
+    // Genera y in modo più basso per far entrare anche frasi lunghe
+    y = Math.random() * (h*0.7 - 22) + 22; // 22px altezza del font
+    
     // Controllo collisioni con altri sogni
     let tooClose = activeDreams.some(d => Math.hypot(d.x - x, d.y - y) < 250);
     if(!tooClose) break;
