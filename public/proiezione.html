@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Proiezione dei sogni</title>
+<title>Proiezione da soffitto</title>
 <style>
 html, body {
   margin: 0; padding: 0;
@@ -113,7 +113,11 @@ class Dream {
       ctx.font = "22px Georgia";
       ctx.fillStyle = "#fff";
       ctx.textAlign = "center";
-      ctx.fillText(this.text, this.x, this.y);
+      ctx.save();
+      ctx.translate(this.x, this.y);
+      ctx.rotate(-0.03); // lieve inclinazione
+      ctx.fillText(this.text, 0, 0);
+      ctx.restore();
       ctx.globalAlpha = 1;
     }
   }
@@ -124,7 +128,7 @@ function getNonOverlappingPosition(){
   let x, y, tries=0;
   do{
     x = Math.random()*w*0.8 + w*0.1;
-    y = Math.random()*h*0.6 + h*0.2;
+    y = Math.random()*h*0.4 + h*0.1; // alto sul soffitto
     let tooClose = activeDreams.some(d=>Math.hypot(d.x - x, d.y - y)<250);
     if(!tooClose) break;
     tries++;
@@ -154,24 +158,45 @@ function manageDreams(dt){
   activeDreams = activeDreams.filter(d=>d.visible);
 }
 
+// ---------- PROSPETTIVA ---------- //
+function perspective(x, y){
+  const depth = h - y;
+  const scale = 0.3 + 0.7*(depth/h);
+  return {
+    x: w/2 + (x - w/2)*scale,
+    y: y*0.6 + h*0.2,
+    r: scale
+  };
+}
+
 // ---------- ANIMAZIONE ---------- //
 let lastTime = 0;
 function animate(time=0){
   const dt = (time - lastTime)/16.666;
   lastTime=time;
 
-  // cielo e stelle
-  ctx.fillStyle = "rgba(0,0,0,0.05)";
+  ctx.fillStyle = "rgba(0,0,0,0.9)";
   ctx.fillRect(0,0,w,h);
+
+  // oscillazione lieve per effetto proiettore
+  const tilt = 0.003 * Math.sin(time/1000);
+  ctx.save();
+  ctx.translate(w/2, h/2);
+  ctx.rotate(tilt);
+  ctx.translate(-w/2, -h/2);
+
+  // stelle
   stars.forEach(s=>{
     s.angle += s.speed*dt;
-    const cx = w/2 + Math.cos(s.angle)*(s.x-w/2) - Math.sin(s.angle)*(s.y-h/2);
-    const cy = h/2 + Math.sin(s.angle)*(s.x-w/2) + Math.cos(s.angle)*(s.y-h/2);
+    const {x: cx, y: cy, r} = perspective(s.x, s.y);
     ctx.globalAlpha = 0.6;
     ctx.fillStyle="#fff";
+    ctx.shadowBlur = 8;
+    ctx.shadowColor = "white";
     ctx.beginPath();
-    ctx.arc(cx,cy,s.r,0,Math.PI*2);
+    ctx.arc(cx,cy,r,0,Math.PI*2);
     ctx.fill();
+    ctx.shadowBlur = 0;
   });
   ctx.globalAlpha = 1;
 
@@ -188,6 +213,8 @@ function animate(time=0){
     c.life++;
     if(c.life>c.maxLife) comets.splice(i,1);
   });
+
+  ctx.restore(); // reset rotazione
 
   // sogni
   manageDreams(dt);
