@@ -155,10 +155,14 @@ function drawPeople(){
   const groundY = H/2 + 120;
   const pw = 100, ph = 240;
 
-  // Persona sinistra
+  // ---------- Persona sinistra con glow bianco ----------
+  ctx.save();
+  ctx.shadowColor = 'rgba(255,255,255,0.6)'; // bianco luminoso
+  ctx.shadowBlur = 25;                        // sfumatura
   ctx.drawImage(leftPerson, 80, groundY-ph, pw, ph);
+  ctx.restore();
 
-  // Persona destra girata
+  // ---------- Persona destra girata ----------
   ctx.save();
   ctx.translate(W-80, groundY-ph);
   ctx.scale(-1,1);
