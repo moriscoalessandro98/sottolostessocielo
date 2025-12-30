@@ -101,6 +101,9 @@ class Dream {
     this.maxWidth = maxWidth;
     this.lines = this.wrapText(text, maxWidth);
     this.lineHeight = 26;
+    // Salva dimensioni reali
+    this.textWidth = Math.min(maxWidth, Math.max(...this.lines.map(line => ctx.measureText(line).width)));
+    this.textHeight = this.lines.length * this.lineHeight;
   }
 
   wrapText(text, maxWidth){
@@ -109,8 +112,7 @@ class Dream {
     let line = '';
     words.forEach(word => {
       const testLine = line + (line ? ' ' : '') + word;
-      const width = ctx.measureText(testLine).width;
-      if(width > maxWidth){
+      if(ctx.measureText(testLine).width > maxWidth){
         if(line) lines.push(line);
         line = word;
       } else {
@@ -152,7 +154,6 @@ class Dream {
 // ---------- POSIZIONE SICURA ---------- //
 function getSafePosition(text){
   const maxWidth = w * 0.6; // max 60% della larghezza
-  ctx.font = "22px Georgia";
   const lineHeight = 26;
 
   // stima numero righe
@@ -170,17 +171,24 @@ function getSafePosition(text){
   });
 
   const textHeight = estimatedLines * lineHeight;
+  const textWidth = Math.min(maxWidth, ctx.measureText(text).width);
 
   let x, y, tries = 0;
   do {
-    x = Math.random() * (w - maxWidth - 20) + maxWidth/2 + 10;
+    x = Math.random() * (w - textWidth - 20) + textWidth/2 + 10;
     y = Math.random() * (h*0.7 - textHeight) + textHeight;
-    const minDistX = (textWidth + d.textWidth) / 2 + 50; // 50px margine extra
-    const minDistY = (textHeight + d.textHeight) / 2 + 50;
-    let tooClose = activeDreams.some(d => Math.abs(d.x - x) < minDistX && Math.abs(d.y - y) < minDistY);    
+
+    // distanza minima proporzionale alla dimensione della frase
+    const minDist = Math.max(textWidth, textHeight) * 1.5; // moltiplica per 1.5 per spazio extra
+    let tooClose = activeDreams.some(d => {
+      const dx = Math.abs(d.x - x);
+      const dy = Math.abs(d.y - y);
+      return dx < (d.textWidth/2 + textWidth/2 + 20) && dy < (d.textHeight/2 + textHeight/2 + 20);
+    });
+
     if(!tooClose) break;
     tries++;
-  } while(tries < 20);
+  } while(tries < 100); // più tentativi
 
   return {x, y, maxWidth};
 }
