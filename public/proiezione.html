@@ -28,7 +28,15 @@ canvas {
 const canvas = document.getElementById("sky");
 const ctx = canvas.getContext("2d");
 let w, h;
-function resize() { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; }
+
+function resize() { 
+  w = canvas.width = window.innerWidth; 
+  h = canvas.height = window.innerHeight;
+
+  // aggiorna linee dei sogni attivi
+  activeDreams.forEach(d => d.updateLines());
+}
+
 window.addEventListener("resize", resize);
 resize();
 
@@ -85,6 +93,7 @@ function shuffle(array){
   return array;
 }
 
+// ---------- CLASSE DREAM RESPONSIVA ---------- //
 class Dream {
   constructor(text, x, y){
     this.text = text;
@@ -93,7 +102,31 @@ class Dream {
     this.opacity = 0;
     this.timer = 0;
     this.visible = true;
+    this.lines = [];
+    this.updateLines(); // calcola linee iniziali
   }
+
+  updateLines(){
+    ctx.font = "22px Georgia";
+    const maxWidth = Math.min(w * 0.4, 600); // larghezza massima adattiva
+    const words = this.text.split(" ");
+    const lines = [];
+    let line = "";
+
+    for(let word of words){
+      const testLine = line ? line + " " + word : word;
+      if(ctx.measureText(testLine).width > maxWidth){
+        if(line) lines.push(line);
+        line = word;
+      } else {
+        line = testLine;
+      }
+    }
+    if(line) lines.push(line);
+    this.lines = lines;
+    this.maxWidth = maxWidth;
+  }
+
   update(dt){
     this.timer += dt;
     if(this.timer < 60){ // fade-in
@@ -107,13 +140,16 @@ class Dream {
       }
     }
   }
+
   draw(){
     if(this.opacity>0){
       ctx.globalAlpha = this.opacity;
       ctx.font = "22px Georgia";
       ctx.fillStyle = "#fff";
       ctx.textAlign = "center";
-      ctx.fillText(this.text, this.x, this.y);
+      this.lines.forEach((line,i)=>{
+        ctx.fillText(line, this.x, this.y + i*26);
+      });
       ctx.globalAlpha = 1;
     }
   }
@@ -121,23 +157,19 @@ class Dream {
 
 // ---------- POSIZIONE SICURA PER LE FRASI ---------- //
 function getSafePosition(text){
-  ctx.font = "22px Georgia";
-  const textWidth = ctx.measureText(text).width;
+  const tempDream = new Dream(text, 0, 0);
+  const textHeight = tempDream.lines.length * 26;
 
   let x, y, tries = 0;
   do {
-    // Centra la frase, margine di 10px su entrambi i lati
-    x = Math.random() * (w - textWidth - 20) + 10;
-    
-    // Genera y in modo più basso per far entrare anche frasi lunghe
-    y = Math.random() * (h*0.7 - 22) + 22; // 22px altezza del font
-    
-    // Controllo collisioni con altri sogni
+    x = Math.random() * (w - tempDream.maxWidth - 20) + tempDream.maxWidth/2 + 10;
+    y = Math.random() * (h*0.7 - textHeight) + textHeight/2 + 10;
+
     let tooClose = activeDreams.some(d => Math.hypot(d.x - x, d.y - y) < 250);
     if(!tooClose) break;
     tries++;
   } while(tries < 20);
-  
+
   return {x, y};
 }
 
@@ -155,7 +187,7 @@ function manageDreams(dt){
     } while(dream._id === lastDreamId && attempts < dreams.length);
 
     lastDreamId = dream._id;
-    const {x, y} = getSafePosition(dream.dream); // usa la nuova funzione
+    const {x, y} = getSafePosition(dream.dream);
     activeDreams.push(new Dream(dream.dream, x, y));
     lastSpawnTime = 0;
   }
