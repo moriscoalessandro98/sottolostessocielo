@@ -41,21 +41,24 @@ for(let i=0;i<STAR_COUNT;i++){
     y: Math.random()*h,
     r: Math.random()*1.2+0.2,
     angle: Math.random()*Math.PI*2,
-    speed: Math.random()*0.0005 + 0.0001
+    speed: Math.random()*0.0005 + 0.0001,
+    glow: Math.random()*0.5+0.5
   });
 }
 
 // ---------- COMETE ---------- //
 const comets = [];
-function spawnComet() {
-  if(Math.random()<0.005 && comets.length<3){
+function spawnComet(isSpecial=false) {
+  if(comets.length>=3) return;
+  if(Math.random()< (isSpecial? 0.3 : 0.005)){
     comets.push({
       x: Math.random()*w,
       y: Math.random()*h*0.5,
       vx: Math.random()*4+2,
       vy: Math.random()*2+1,
       life: 0,
-      maxLife: Math.random()*60+60
+      maxLife: Math.random()*60+60,
+      special: isSpecial
     });
   }
 }
@@ -90,30 +93,41 @@ class Dream {
     this.text = text;
     this.x = x;
     this.y = y;
+    this.baseY = y;
     this.opacity = 0;
     this.timer = 0;
     this.visible = true;
+    this.color = "#fff";
+    this.fluctuationSpeed = 0.5;
   }
   update(dt){
     this.timer += dt;
-    if(this.timer < 60){ // fade-in
+    // fade-in
+    if(this.timer < 60){ 
       this.opacity += 0.015;
       if(this.opacity>0.9) this.opacity=0.9;
-    } else if(this.timer > 400){ // fade-out
+    } 
+    // fade-out
+    else if(this.timer > 400){ 
       this.opacity -= 0.01;
       if(this.opacity<=0){
         this.opacity=0;
         this.visible=false;
       }
     }
+    // oscillazione verticale
+    this.y = this.baseY + Math.sin(this.timer * 0.05 * this.fluctuationSpeed) * 5;
   }
   draw(){
     if(this.opacity>0){
       ctx.globalAlpha = this.opacity;
       ctx.font = "22px Georgia";
-      ctx.fillStyle = "#fff";
+      ctx.fillStyle = this.color;
       ctx.textAlign = "center";
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = "#fff";
       ctx.fillText(this.text, this.x, this.y);
+      ctx.shadowBlur = 0;
       ctx.globalAlpha = 1;
     }
   }
@@ -125,7 +139,7 @@ function getNonOverlappingPosition(){
   do{
     x = Math.random()*w*0.8 + w*0.1;
     y = Math.random()*h*0.6 + h*0.2;
-    let tooClose = activeDreams.some(d=>Math.hypot(d.x - x, d.y - y)<150);
+    let tooClose = activeDreams.some(d=>Math.hypot(d.x - x, d.y - y)<250);
     if(!tooClose) break;
     tries++;
   } while(tries<20);
@@ -156,20 +170,63 @@ function manageDreams(dt){
 
 // ---------- COSTELLAZIONI ---------- //
 function drawConstellations(){
-  ctx.strokeStyle = "rgba(255,255,255,0.5)";
-  ctx.lineWidth = 1;
-  for(let i=0;i<activeDreams.length;i++){
-    for(let j=i+1;j<activeDreams.length;j++){
-      const d1 = activeDreams[i];
-      const d2 = activeDreams[j];
-      const dist = Math.hypot(d1.x-d2.x, d1.y-d2.y);
-      if(dist<250){
+  for(let i=0;i<stars.length;i++){
+    for(let j=i+1;j<stars.length;j++){
+      const dx = stars[i].x - stars[j].x;
+      const dy = stars[i].y - stars[j].y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if(dist<120){
+        ctx.strokeStyle = `rgba(255,255,255,${0.15})`;
+        ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(d1.x,d1.y);
-        ctx.lineTo(d2.x,d2.y);
+        ctx.moveTo(stars[i].x, stars[i].y);
+        ctx.lineTo(stars[j].x, stars[j].y);
         ctx.stroke();
       }
     }
+  }
+}
+
+// ---------- EVENTO SPECIALE ---------- //
+let specialTimer = 0;
+let constellationTimer = 0;
+function manageSpecials(dt){
+  specialTimer += dt;
+  constellationTimer += dt;
+
+  // Evento ogni 30-60 sec
+  if(specialTimer>1800){
+    specialTimer = 0;
+    // aumenta velocità sogni
+    activeDreams.forEach(d=>{
+      d.fluctuationSpeed = 2;
+      d.color = `hsl(${Math.random()*360}, 80%, 80%)`;
+    });
+    spawnComet(true);
+    setTimeout(()=>{ // ripristina dopo 5 sec
+      activeDreams.forEach(d=>{
+        d.fluctuationSpeed = 0.5;
+        d.color = "#fff";
+      });
+    },5000);
+  }
+
+  // Costellazione unica ogni 5 min
+  if(constellationTimer>18000){
+    constellationTimer=0;
+    // seleziona 5-10 stelle casuali e le illumina più forti per un po'
+    const specialStars = [];
+    for(let i=0;i<Math.min(10, stars.length);i++){
+      const s = stars[Math.floor(Math.random()*stars.length)];
+      specialStars.push(s);
+    }
+    let flashCount = 0;
+    const flashInterval = setInterval(()=>{
+      flashCount++;
+      stars.forEach(s=>s.glow=0.5); // reset glow
+      specialStars.forEach(s=>s.glow=1.5);
+      if(flashCount>20) clearInterval(flashInterval);
+    },100);
   }
 }
 
@@ -179,26 +236,33 @@ function animate(time=0){
   const dt = (time - lastTime)/16.666;
   lastTime=time;
 
-  // cielo e stelle
-  ctx.fillStyle = "rgba(0,0,0,0.05)";
+  // sfondo sfumato leggero
+  const grad = ctx.createLinearGradient(0,0,0,h);
+  grad.addColorStop(0,"#000014");
+  grad.addColorStop(1,"#0a001a");
+  ctx.fillStyle = grad;
   ctx.fillRect(0,0,w,h);
+
+  // stelle
   stars.forEach(s=>{
     s.angle += s.speed*dt;
     const cx = w/2 + Math.cos(s.angle)*(s.x-w/2) - Math.sin(s.angle)*(s.y-h/2);
     const cy = h/2 + Math.sin(s.angle)*(s.x-w/2) + Math.cos(s.angle)*(s.y-h/2);
-    ctx.globalAlpha = 0.6;
+    ctx.globalAlpha = s.glow;
     ctx.fillStyle="#fff";
     ctx.beginPath();
     ctx.arc(cx,cy,s.r,0,Math.PI*2);
     ctx.fill();
   });
-  ctx.globalAlpha = 1;
+  ctx.globalAlpha=1;
+
+  drawConstellations();
 
   // comete
   spawnComet();
   comets.forEach((c,i)=>{
-    ctx.strokeStyle = "rgba(255,255,255,0.8)";
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = c.special ? "rgba(255,255,200,0.9)" : "rgba(255,255,255,0.8)";
+    ctx.lineWidth = c.special ? 2 : 1;
     ctx.beginPath();
     ctx.moveTo(c.x,c.y);
     ctx.lineTo(c.x - c.vx*4, c.y - c.vy*4);
@@ -212,8 +276,8 @@ function animate(time=0){
   manageDreams(dt);
   activeDreams.forEach(d=>d.draw());
 
-  // costellazioni
-  drawConstellations();
+  // special events
+  manageSpecials(dt);
 
   requestAnimationFrame(animate);
 }
