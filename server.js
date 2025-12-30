@@ -35,7 +35,7 @@ app.post('/api/dream', async (req, res) => {
 app.get('/api/dreams', async (req, res) => {
   try {
     // Prendi tutti i sogni, ordinati dal più recente al più vecchio
-    const dreams = await Dream.find().sort({ createdAt: -1 }).limit(200);
+    const dreams = await Dream.find();
     res.json(dreams);
   } catch (err) {
     console.error(err);

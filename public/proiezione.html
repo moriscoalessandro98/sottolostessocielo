@@ -5,28 +5,35 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Proiezione dei sogni</title>
 <style>
-html, body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  height: 100%;
-  background: #000;
-  overflow: hidden;
-  font-family: "Georgia", serif;
-  color: #fff;
-}
-canvas {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-}
+  html, body {
+    margin: 0; padding: 0;
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: #000;
+    font-family: "Georgia", serif;
+    color: #fff;
+  }
+  canvas {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+  }
+  .dream {
+    position: absolute;
+    color: #fff;
+    font-size: 22px;
+    font-weight: 500;
+    text-align: center;
+    white-space: pre-line;
+    pointer-events: none;
+  }
 </style>
 </head>
 <body>
-
 <canvas id="sky"></canvas>
 
 <script>
+// ---------- CANVAS ---------- //
 const canvas = document.getElementById("sky");
 const ctx = canvas.getContext("2d");
 let w, h;
@@ -34,108 +41,122 @@ function resize() { w = canvas.width = window.innerWidth; h = canvas.height = wi
 window.addEventListener("resize", resize);
 resize();
 
-// ---------- STELLE ----------
+// ---------- STELLE ---------- //
 const stars = [];
-const STAR_COUNT = window.innerWidth < 600 ? 300 : 450;
+const STAR_COUNT = 500;
 for(let i=0;i<STAR_COUNT;i++){
-  stars.push({x: Math.random()*w, y: Math.random()*h, r: Math.random()*1.2+0.2, a: Math.random(), tw: Math.random()*0.002+0.0005});
-}
-
-// ---------- COMETE ----------
-const comets = [];
-function spawnComet() {
-  if (Math.random()<0.003) {
-    comets.push({x:Math.random()*w, y:Math.random()*h*0.5, vx: Math.random()*3+2, vy: Math.random()*1+0.5, life:0});
-  }
-}
-
-// ---------- SOGNI ----------
-let dreamObjects = [];
-function addDream(text){
-  dreamObjects.push({
-    text,
-    x: Math.random()*(w-200)+50,
-    y: Math.random()*(h-100)+50,
-    alpha: 0,
-    fadeIn: true,
-    life: 0,
-    maxLife: 600+Math.random()*600,
-    fontSize: 14+Math.random()*6
+  stars.push({
+    x: Math.random()*w,
+    y: Math.random()*h,
+    r: Math.random()*1.2+0.2,
+    a: Math.random(),
+    tw: Math.random()*0.002+0.0005
   });
 }
 
-// ---------- FETCH SOGNI ----------
-async function fetchDreams(){
-  try{
-    const res = await fetch("/api/dreams");
-    if(!res.ok) return;
-    const dreams = await res.json();
-    dreams.forEach(d => addDream(d.dream));
-  }catch{}
+// ---------- SOGNI ---------- //
+let dreams = [];
+let activeDreams = [];
+let dreamIndex = 0;
+const MAX_ACTIVE = 2;
+
+// ---------- FUNZIONI ---------- //
+function shuffle(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
 }
-setInterval(fetchDreams, 5000); // ogni 5 secondi
 
-// ---------- DISEGNO ----------
-let rotation = 0;
+async function fetchDreams(){
+  try {
+    const res = await fetch("/api/dreams");
+    if(res.ok){
+      const data = await res.json();
+      dreams = data.map(d=>d.dream);
+      dreams = shuffle(dreams); // <--- mescola casualmente i sogni
+      dreamIndex = 0;            // opzionale: ricomincia dall'inizio dell'array mescolato
+    }
+  } catch {}
+}
 
-function draw(){
+// ---------- DREAM CLASS ---------- //
+class Dream {
+  constructor(text){
+    this.text = text;
+    this.x = Math.random()*w*0.8 + w*0.1;
+    this.y = Math.random()*h*0.6 + h*0.2;
+    this.opacity = 0;
+    this.maxOpacity = 0.9;
+    this.life = 0;
+    this.fadeIn = true;
+  }
+  update(){
+    if(this.fadeIn){
+      this.opacity += 0.005;
+      if(this.opacity >= this.maxOpacity){
+        this.opacity = this.maxOpacity;
+        this.fadeIn = false;
+      }
+    } else {
+      this.life += 0.008;
+      this.opacity = this.maxOpacity*(1-Math.min(this.life,1));
+    }
+  }
+  draw(){
+    ctx.globalAlpha = this.opacity;
+    ctx.font = "22px Georgia";
+    ctx.fillStyle = "#fff";
+    ctx.textAlign = "center";
+    ctx.fillText(this.text, this.x, this.y);
+    ctx.globalAlpha = 1;
+  }
+  done(){
+    return this.opacity <= 0;
+  }
+}
+
+// ---------- ANIMAZIONE ---------- //
+let time = 0;
+function drawStars(){
   ctx.clearRect(0,0,w,h);
-
-  // rotazione minima del cielo
-  ctx.save();
-  ctx.translate(w/2, h/2);
-  ctx.rotate(rotation);
-  ctx.translate(-w/2, -h/2);
-
-  // stelle
   stars.forEach(s=>{
     s.a += s.tw;
-    ctx.globalAlpha = 0.6+Math.sin(s.a)*0.4;
-    ctx.fillStyle="#fff";
+    ctx.globalAlpha = 0.6 + Math.sin(s.a)*0.4;
+    ctx.fillStyle = "#fff";
     ctx.beginPath();
     ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
     ctx.fill();
   });
-
-  // comete
-  spawnComet();
-  comets.forEach((c,i)=>{
-    ctx.strokeStyle="rgba(255,255,255,0.8)";
-    ctx.lineWidth=1;
-    ctx.beginPath();
-    ctx.moveTo(c.x, c.y);
-    ctx.lineTo(c.x-c.vx*4, c.y-c.vy*4);
-    ctx.stroke();
-    c.x+=c.vx; c.y+=c.vy; c.life++;
-    if(c.life>60) comets.splice(i,1);
-  });
-
-  // sogni
-  dreamObjects.forEach((d,i)=>{
-    ctx.globalAlpha=d.alpha;
-    ctx.font = `${d.fontSize}px Georgia`;
-    ctx.fillStyle="rgba(255,255,255,1)";
-    ctx.fillText(d.text, d.x, d.y);
-
-    if(d.fadeIn){
-      d.alpha+=0.01;
-      if(d.alpha>=1) d.fadeIn=false;
-    }else{
-      d.life++;
-      if(d.life>d.maxLife){
-        d.alpha-=0.01;
-        if(d.alpha<=0) dreamObjects.splice(i,1);
-      }
-    }
-  });
-
-  ctx.restore();
-
-  rotation += 0.0003; // rotazione lenta
-  requestAnimationFrame(draw);
+  ctx.globalAlpha = 1;
 }
-draw();
-</script>
 
+// ---------- LOGICA SOGNI ---------- //
+function manageDreams(){
+  activeDreams.forEach(d=>d.update());
+  activeDreams = activeDreams.filter(d=>!d.done());
+
+  if(activeDreams.length < MAX_ACTIVE && dreams.length > 0){
+    const text = dreams[dreamIndex % dreams.length];
+    activeDreams.push(new Dream(text));
+    dreamIndex++;
+  }
+}
+
+// ---------- LOOP ---------- //
+function animate(){
+  drawStars();
+  manageDreams();
+  activeDreams.forEach(d=>d.draw());
+  requestAnimationFrame(animate);
+}
+
+animate();
+
+// ---------- FETCH IN TEMPO REALE ---------- //
+fetchDreams();
+setInterval(fetchDreams, 8000); // aggiorna sogni ogni 8 secondi
+</script>
 </body>
 </html>
